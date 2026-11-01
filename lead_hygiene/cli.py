@@ -40,6 +40,13 @@ def cmd_qualify(args) -> int:
     return 0
 
 
+def cmd_contacts(args) -> int:
+    from .contacts import add_contacts
+
+    print(add_contacts(args.file, out=args.out, workers=args.workers))
+    return 0
+
+
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "hygiene":
         sys.argv = [sys.argv[0], *sys.argv[2:]]
@@ -63,6 +70,12 @@ def main() -> int:
     q.add_argument("--out")
     q.add_argument("--workers", type=int, default=12)
     q.set_defaults(func=cmd_qualify)
+
+    c = sub.add_parser("contacts", help="find contact emails from PASS leads' own sites ($0)")
+    c.add_argument("file")
+    c.add_argument("--out")
+    c.add_argument("--workers", type=int, default=8)
+    c.set_defaults(func=cmd_contacts)
 
     args = ap.parse_args()
     return args.func(args)
