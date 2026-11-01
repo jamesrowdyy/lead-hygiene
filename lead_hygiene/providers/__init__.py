@@ -6,6 +6,7 @@ Optional: email, email_status, linkedin, headcount.
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 
@@ -46,9 +47,11 @@ class OSMProvider(Provider):
         area_id = self._area_id(area)
         if not area_id:
             return []
-        tag = next((v for k, v in self.TAGS.items() if k in term.lower()),
-                   f'["name"~"{term}",i]')
-        q = f'[out:json][timeout:60];area({area_id})->.a;nwr{tag}["website"](area.a);out center 200;'
+        words = set(re.findall(r"\w+", term.lower()))
+        tag = next((v for k, v in self.TAGS.items() if k in words),
+                   f'["name"~"{re.escape(term)}",i]')
+        q = (f'[out:json][timeout:60];area({area_id})->.a;'
+             f'nwr{tag}[~"^($|contact:)website$"~"."](area.a);out center 200;')
         data = self._overpass(q)
         rows = []
         for el in data.get("elements", []):
@@ -78,17 +81,34 @@ class OSMProvider(Provider):
         with urllib.request.urlopen(req, timeout=30) as resp:
             hits = json.loads(resp.read())
         if not hits:
-            return None
-        return 3600000000 + int(hits[0]["osm_id"])
+            raise ValueError(f"no OSM area found for {area!r}")
+        hit = hits[0]
+        # Overpass area ids: relations 36e8+id, ways 24e8+id. Nodes are not areas.
+        if hit["osm_type"] == "relation":
+            return 3600000000 + int(hit["osm_id"])
+        if hit["osm_type"] == "way":
+            return 2400000000 + int(hit["osm_id"])
+        raise ValueError(f"{area!r} resolved to a point, not an area; name it more precisely")
+
+    MIRRORS = (
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    )
 
     def _overpass(self, ql: str) -> dict:
-        req = urllib.request.Request(
-            "https://overpass-api.de/api/interpreter",
-            data=urllib.parse.urlencode({"data": ql}).encode(),
-            headers={"User-Agent": UA},
-        )
-        with urllib.request.urlopen(req, timeout=90) as resp:
-            return json.loads(resp.read())
+        last: Exception | None = None
+        for url in self.MIRRORS:
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=urllib.parse.urlencode({"data": ql}).encode(),
+                    headers={"User-Agent": UA},
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    return json.loads(resp.read())
+            except Exception as exc:  # try the next mirror
+                last = exc
+        raise last or RuntimeError("overpass failed")
 
 
 class GooglePlacesProvider(Provider):

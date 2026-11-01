@@ -2,14 +2,16 @@
 
 $0 to run: DNS + plain HTTP only, no API spend.
 
-Fixes over the original in-house script:
-  - dnspython for MX (was a `dig` subprocess that silently failed everywhere else)
-  - the title-identity check is now enforced in the verdict (was recorded but unused)
-  - redirect detection matches the registered domain, not a substring
+Verdicts state their own evidence:
+  PASS  = domain has a real MX record AND a live site answered
+  WEAK  = partial evidence, or evidence that contradicts identity
+          (DNS unresolvable, dead site, social-page "website", title mismatch)
+  FAIL  = domain cannot receive mail (or does not exist)
 """
 from __future__ import annotations
 
 import csv
+import os
 import re
 import sys
 import urllib.error
@@ -19,19 +21,23 @@ from concurrent.futures import ThreadPoolExecutor
 try:
     import dns.resolver
 
-    def has_mx(domain: str) -> bool:
+    def has_mx(domain: str):
+        """True/False = proven; None = could not resolve (treated as unknown)."""
         if not domain:
             return False
         try:
             answers = dns.resolver.resolve(domain, "MX", lifetime=8)
-            return bool(answers)
-        except Exception:
+            # RFC 7505 null MX: the domain explicitly accepts no mail
+            return bool(answers) and not all(str(r.exchange) == "." for r in answers)
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
             return False
+        except Exception:
+            return None
 
 except ImportError:  # pragma: no cover - dig fallback
     import subprocess
 
-    def has_mx(domain: str) -> bool:
+    def has_mx(domain: str):
         if not domain:
             return False
         try:
@@ -39,15 +45,14 @@ except ImportError:  # pragma: no cover - dig fallback
                 ["dig", "+short", "+time=3", "+tries=1", "MX", domain],
                 capture_output=True, text=True, timeout=8,
             ).stdout
-            return bool(out.strip())
+            if not out.strip():
+                return False
+            return None if "communications error" in out.lower() else True
         except Exception:
-            return False
+            return None
 
 
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126 Safari/537.36"
-)
+UA = "lead-hygiene/0.1 (free lead hygiene checker; +https://github.com/jamesrowdyy/lead-hygiene)"
 
 # crude public-suffix handling for registered-domain matching (good enough for redirects)
 _MULTIPART_SUFFIXES = {"co.uk", "org.uk", "com.au", "co.nz", "co.jp", "com.sg", "com.br"}
@@ -77,7 +82,8 @@ def site_probe(domain: str) -> tuple[bool, int, str, str]:
                 host = re.sub(r"^https?://", "", resp.geturl()).split("/")[0].lower()
                 return True, resp.status, host, title
         except urllib.error.HTTPError as exc:
-            # 403/404 still proves a server answered on that host
+            # 403/410/5xx still prove a server answered on that host; 404 on / is
+            # weaker evidence, but a live server exists either way
             return True, exc.code, domain, ""
         except Exception:
             continue
@@ -110,6 +116,10 @@ _SOCIAL_DOMAINS = {"facebook.com", "instagram.com", "linktr.ee", "x.com",
                    "twitter.com", "tiktok.com", "wixsite.com", "business.site"}
 
 
+def _is_social(domain: str) -> bool:
+    return any(domain == s or domain.endswith("." + s) for s in _SOCIAL_DOMAINS)
+
+
 def qualify_row(row: dict) -> dict:
     domain = normalize_domain(row.get("domain"))
     row["domain"] = domain
@@ -119,9 +129,11 @@ def qualify_row(row: dict) -> dict:
     li = linkedin_ok(row.get("linkedin") or "")
 
     flags = []
-    if any(domain == s or domain.endswith("." + s) for s in _SOCIAL_DOMAINS):
+    if _is_social(domain):
         flags.append("social_page")  # not the company's own site
-    if not mx:
+    if mx is None:
+        flags.append("dns_error")
+    elif mx is False:
         flags.append("no_mx")
     if mx and not live:
         flags.append("site_dead")
@@ -138,16 +150,19 @@ def qualify_row(row: dict) -> dict:
     elif identity is False:
         flags.append("title_mismatch")
 
-    if mx and live:
+    if mx is True and live and "social_page" not in flags:
         verdict = "PASS"
-    elif mx:
+    elif mx is not False:
+        # DNS unknown, live-only, or a contradicting identity flag
         verdict = "WEAK"
     else:
         verdict = "FAIL"
+    if verdict == "PASS" and "title_mismatch" in flags:
+        verdict = "WEAK"
 
     row.update(
         {
-            "mx_ok": "yes" if mx else "no",
+            "mx_ok": "" if mx is None else ("yes" if mx else "no"),
             "site_live": "yes" if live else "no",
             "http_status": status or "",
             "site_title": title,
@@ -162,7 +177,7 @@ def qualify_row(row: dict) -> dict:
 
 
 def qualify_csv(path: str, out: str | None = None, workers: int = 12) -> dict:
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     if not rows:
         return {"total": 0}
@@ -178,8 +193,10 @@ def qualify_csv(path: str, out: str | None = None, workers: int = 12) -> dict:
         1 for r in rows if r["qualify"] == "PASS" and "@" in (r.get("email") or "")
     )
 
-    out = out or path.replace(".csv", ".qualified.csv")
-    with open(out, "w", newline="") as fh:
+    if not out:
+        root, ext = os.path.splitext(path)
+        out = f"{root}.qualified{ext or '.csv'}"
+    with open(out, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)

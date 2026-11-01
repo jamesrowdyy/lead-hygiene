@@ -5,6 +5,7 @@ import argparse
 import csv
 import os
 import sys
+import urllib.error
 
 from . import __version__
 from .providers import get_provider
@@ -15,7 +16,11 @@ def cmd_discover(args) -> int:
     key = os.environ.get("GOOGLE_PLACES_API_KEY")
     if args.provider == "google_places" and key:
         creds["api_key"] = key
-    rows = get_provider(args.provider, **creds).search(args.query, args.country)
+    try:
+        rows = get_provider(args.provider, **creds).search(args.query, args.country)
+    except (ValueError, OSError, urllib.error.URLError) as exc:
+        print(f"discover failed: {exc}", file=sys.stderr)
+        return 1
     if not rows:
         print("no rows found")
         return 2

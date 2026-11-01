@@ -1,16 +1,16 @@
 # Lead Hygiene
 
-**Free lead discovery + honest lead qualification.** Discover businesses, qualify what
+**Free lead discovery + honest lead qualification.** Discover businesses, check what
 you actually found, and never call an unverified email "verified".
 
 The valuable part of any lead pipeline is not the scraping — it is the hygiene:
 checking that a domain can receive mail, that a live site exists, that the site
-belongs to the company it claims to be, and tiering the result honestly.
+belongs to the company it claims to be, and grading the result honestly.
 
 ```
-Discover  ->  Qualify  ->  Tier  ->  Hygiene
-(free or     (MX, site,   (A / A- / B)  (dedupe, suppress,
- your key)    identity)                 quarantine, log)
+Discover  ->  Qualify  ->  Hygiene
+(free or     (MX, site,     (quarantine,
+ your key)    identity)      audit log)
 ```
 
 ## Honest limits (this repo's core idea)
@@ -20,6 +20,8 @@ Every verdict states its own evidence:
 - MX proves the **domain** can receive mail, not that the mailbox exists.
 - A live site proves a business operates, not that the person still works there.
 - A catch-all domain accepts any address. A `CATCH_ALL` email is **never** called verified.
+- The free discovery source provides **no emails and no LinkedIn profiles** — discovery
+  and contact-finding are different problems. Paid providers can fill that gap.
 
 If a tool promises "verified emails" without telling you what was actually verified,
 it is lying to you. This tool tells you exactly what each check proved.
@@ -34,35 +36,47 @@ pip install -e .
 
 ```bash
 # 1. Discover (free, no key required — OpenStreetMap)
-lead-hygiene discover --query "roofing companies in Austin" --out leads.csv
+lead-hygiene discover --query "coffee shop in Bristol" --out leads.csv
 
 # 2. Qualify ($0: DNS + plain HTTP)
 lead-hygiene qualify leads.csv --out qualified.csv
 
-# 3. Hygiene: quarantine FAILs, keep an audit log
-lead-hygiene hygiene --bank-dir ./bank
+# 3. Quarantine FAIL rows, keep an audit log
+lead-hygiene hygiene qualified.csv
 ```
+
+## Verdicts
+
+| Verdict | Evidence |
+|---|---|
+| **PASS** | Real MX record + live site answered |
+| **WEAK** | Partial evidence, or contradicting identity (DNS unresolvable, dead site, social-page "website", title mismatch) |
+| **FAIL** | Domain cannot receive mail (or does not exist) |
+
+Each row carries its evidence columns: `mx_ok`, `site_live`, `http_status`,
+`site_title`, `redirect_host`, `title_match`, plus a `qualify_flags` list
+(`catch_all`, `no_linkedin`, `dns_error`, …).
 
 ## Providers
 
-Discovery is pluggable. Bring your own keys; nothing is hardcoded.
-
 | Provider | Cost | Notes |
 |---|---|---|
-| `osm` (default) | free | OpenStreetMap/Overpass. No key. Coverage varies by region |
-| `google_places` | ~$ per call | Your Google Maps API key |
-| `treg` | ~$0.0002/call | TREG catalog (`treg.google.serp.maps`) |
-| `getleadsio` | free trial quota | 250 rows/call, includes `email_status` — the shortcut this repo replaces |
+| `osm` (default) | free | OpenStreetMap via Overpass. No key. Coverage varies by region; no emails |
+| `google_places` | ~$ per call | Your own Google Places API key (`GOOGLE_PLACES_API_KEY`) |
 
-Configure via `.env` (see `.env.example`) or `config.toml`.
+Keys go in your environment — nothing is hardcoded and no key is required for the
+free path.
 
-## Output tiers
+## Responsible use
 
-| Tier | Meaning | Sendable? |
-|---|---|---|
-| **A** | VALID email + MX + live site | Yes |
-| **A-** | CATCH_ALL email + MX + live site | Your call, never labelled verified |
-| **B** | Unknown status or weak site evidence | No — quarantined or flagged |
+- Respect [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/)
+  and Overpass fair-use: cache results, keep request rates low, attribute OpenStreetMap
+  contributors (ODbL).
+- Google Places has its own storage and caching terms — check them before storing results.
+- Lead data is personal data in most jurisdictions. If you outreach, you own the
+  compliance (GDPR, CAN-SPAM, PECR). This tool verifies data; it does not legalise contact.
+- This is a local CLI. Don't wrap it in a public web service without adding input
+  validation first — the site probe follows redirects.
 
 ## License
 

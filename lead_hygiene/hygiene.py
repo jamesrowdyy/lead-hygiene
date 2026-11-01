@@ -15,13 +15,15 @@ LOG = "./bank/hygiene_log.jsonl"
 
 def log(entry: dict, log_file: str = LOG) -> None:
     entry["at"] = dt.datetime.now().isoformat(timespec="seconds")
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    with open(log_file, "a") as fh:
+    d = os.path.dirname(log_file)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    with open(log_file, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry) + "\n")
 
 
 def quarantine(path: str, dry: bool, log_file: str) -> tuple[int, int]:
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     if not rows or "qualify" not in rows[0]:
         return 0, len(rows)
@@ -40,17 +42,7 @@ def quarantine(path: str, dry: bool, log_file: str) -> tuple[int, int]:
         print(f"  [dry] would quarantine {len(drop)} of {len(rows)} from {path}")
         return len(drop), len(keep)
 
-    exists = os.path.exists(qpath)
-    with open(qpath, "a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        if not exists:
-            w.writeheader()
-        w.writerows(drop)
-    with open(path, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(keep)
-
+    # audit first, mutate second: a crash mid-way still leaves the log answerable
     log(
         {
             "action": "quarantine",
@@ -62,6 +54,18 @@ def quarantine(path: str, dry: bool, log_file: str) -> tuple[int, int]:
         },
         log_file,
     )
+
+    exists = os.path.exists(qpath)
+    with open(qpath, "a", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        if not exists:
+            w.writeheader()
+        w.writerows(drop)
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(keep)
+
     print(f"  quarantined {len(drop)} FAIL rows -> {qpath} (kept {len(keep)})")
     return len(drop), len(keep)
 

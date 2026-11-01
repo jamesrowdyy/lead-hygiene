@@ -1,19 +1,15 @@
-# Provider config — bring your own keys, nothing is required for the free path.
+# Provider config — bring your own keys; the free OSM path needs nothing.
 
 [discovery]
-# default = osm (free, no key). alternatives: google_places | treg | getleadsio
+# default = osm (free, no key). alternative: google_places
 provider = "osm"
 country = "US"
 
-# --- optional paid providers (leave blank to stay free) ---
-# GOOGLE_PLACES_API_KEY =
-# TREG_API_KEY =
-# GETLEADSIO_KEY =
+# optional: set GOOGLE_PLACES_API_KEY in your environment to use google_places
 
 [qualify]
 workers = 12
 timeout_seconds = 12
 
 [hygiene]
-bank_dir = "./bank"
 log_file = "./bank/hygiene_log.jsonl"
