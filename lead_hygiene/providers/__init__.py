@@ -10,7 +10,7 @@ import re
 import urllib.parse
 import urllib.request
 
-UA = "lead-hygiene/0.1 (https://github.com/jamesrowdyy/lead-hygiene)"
+UA = "lead-hygiene/0.1 (https://jamesrowdy.com/tools/lead-hygiene/)"
 
 
 class Provider:
@@ -48,6 +48,7 @@ class OSMProvider(Provider):
         if not area_id:
             return []
         words = set(re.findall(r"\w+", term.lower()))
+        words |= {w[:-1] for w in words if w.endswith("s")}  # "dentists" -> "dentist"
         tag = next((v for k, v in self.TAGS.items() if k in words),
                    f'["name"~"{re.escape(term)}",i]')
         q = (f'[out:json][timeout:60];area({area_id})->.a;'
@@ -75,19 +76,21 @@ class OSMProvider(Provider):
         """Geocode the area name via Nominatim, return an Overpass area id."""
         req = urllib.request.Request(
             "https://nominatim.openstreetmap.org/search?"
-            + urllib.parse.urlencode({"q": area, "format": "json", "limit": 1}),
+            + urllib.parse.urlencode({"q": area, "format": "json", "limit": 10}),
             headers={"User-Agent": UA},
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             hits = json.loads(resp.read())
         if not hits:
             raise ValueError(f"no OSM area found for {area!r}")
-        hit = hits[0]
-        # Overpass area ids: relations 36e8+id, ways 24e8+id. Nodes are not areas.
-        if hit["osm_type"] == "relation":
-            return 3600000000 + int(hit["osm_id"])
-        if hit["osm_type"] == "way":
-            return 2400000000 + int(hit["osm_id"])
+        # Nominatim often ranks a city's centre point first ("Leeds" -> a node).
+        # Take the best-ranked hit that is an area. Overpass area ids:
+        # relations 36e8+id, ways 24e8+id. Nodes are not areas.
+        for hit in hits:
+            if hit["osm_type"] == "relation":
+                return 3600000000 + int(hit["osm_id"])
+            if hit["osm_type"] == "way":
+                return 2400000000 + int(hit["osm_id"])
         raise ValueError(f"{area!r} resolved to a point, not an area; name it more precisely")
 
     MIRRORS = (

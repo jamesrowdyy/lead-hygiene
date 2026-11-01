@@ -52,7 +52,7 @@ except ImportError:  # pragma: no cover - dig fallback
             return None
 
 
-UA = "lead-hygiene/0.1 (free lead hygiene checker; +https://github.com/jamesrowdyy/lead-hygiene)"
+UA = "lead-hygiene/0.1 (free lead hygiene checker; +https://jamesrowdy.com/tools/lead-hygiene/)"
 
 # crude public-suffix handling for registered-domain matching (good enough for redirects)
 _MULTIPART_SUFFIXES = {"co.uk", "org.uk", "com.au", "co.nz", "co.jp", "com.sg", "com.br"}
