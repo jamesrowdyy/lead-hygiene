@@ -51,7 +51,7 @@ class OSMProvider(Provider):
         tag = next((v for k, v in self.TAGS.items() if k in words),
                    f'["name"~"{re.escape(term)}",i]')
         q = (f'[out:json][timeout:60];area({area_id})->.a;'
-             f'nwr{tag}[~"^($|contact:)website$"~"."](area.a);out center 200;')
+             f'nwr{tag}["website"](area.a);out center 200;')
         data = self._overpass(q)
         rows = []
         for el in data.get("elements", []):
