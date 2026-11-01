@@ -6,8 +6,10 @@
   html,body{width:1080px;height:1350px;overflow:hidden;background:var(--bg);color:var(--fg);
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",sans-serif}
   .abs{position:absolute}
-  .brand{left:72px;top:64px;font-size:30px;font-weight:700;letter-spacing:-.01em}
-  .brand span{color:var(--acc)}
+  .brand{left:72px;top:52px;display:flex;align-items:center;gap:18px}
+  .brand img{width:64px;height:64px;border-radius:50%;border:2px solid var(--bd)}
+  .brand .nm{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.1}
+  .brand .gh{font-size:22px;color:var(--mut);font-family:"SF Mono",Menlo,monospace;margin-top:2px}
   .steps{right:72px;top:70px;display:flex;gap:14px}
   .dot{width:120px;height:8px;border-radius:4px;background:var(--bd);overflow:hidden}
   .dot i{display:block;height:100%;width:0;background:var(--acc)}
@@ -48,7 +50,7 @@
   .end .gh{margin-top:24px;font-family:"SF Mono",Menlo,monospace;font-size:34px;color:var(--acc);opacity:0}
 </style></head>
 <body>
-<div class="abs brand">Lead <span>Hygiene</span></div>
+<div class="abs brand"><img src="avatar.jpg" alt=""><div><div class="nm">James Rowdy</div><div class="gh">@jamesrowdyy</div></div></div>
 <div class="abs steps"><div class="dot"><i id="d1"></i></div><div class="dot"><i id="d2"></i></div><div class="dot"><i id="d3"></i></div></div>
 
 <!-- S0 hook -->
