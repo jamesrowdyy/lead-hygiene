@@ -1,11 +1,16 @@
 # Lead Hygiene
 
-**Free lead discovery + honest lead qualification.** Discover businesses, check what
-you actually found, and never call an unverified email "verified".
+![Lead Hygiene pipeline](docs/hero.png)
 
-The valuable part of any lead pipeline is not the scraping — it is the hygiene:
-checking that a domain can receive mail, that a live site exists, that the site
-belongs to the company it claims to be, and grading the result honestly.
+**Lead Hygiene is the qualification layer for lead generation pipelines.** It
+takes raw business leads from any source and grades every row on hard evidence —
+DNS, HTTP and page identity — so your outreach list contains businesses that
+actually exist, actually operate, and actually receive mail.
+
+Scrapers are a solved problem. What separates a working pipeline from a wasted
+one is what happens after the scrape: dead domains, parked pages, social-media
+placeholders pretending to be websites, and unverified emails. Lead Hygiene
+removes those before they reach your CRM.
 
 ```
 Discover  ->  Qualify  ->  Hygiene
@@ -13,18 +18,18 @@ Discover  ->  Qualify  ->  Hygiene
  your key)    identity)      audit log)
 ```
 
-## Honest limits (this repo's core idea)
+## What it checks
 
-Every verdict states its own evidence:
+| Verdict | Evidence |
+|---|---|
+| **PASS** | Real MX record + live site answered + page identity consistent with the company name |
+| **WEAK** | Partial evidence or contradictions: DNS unresolvable, dead site, social-page "website", title mismatch |
+| **FAIL** | Domain cannot receive mail (or does not exist) |
 
-- MX proves the **domain** can receive mail, not that the mailbox exists.
-- A live site proves a business operates, not that the person still works there.
-- A catch-all domain accepts any address. A `CATCH_ALL` email is **never** called verified.
-- The free discovery source provides **no emails and no LinkedIn profiles** — discovery
-  and contact-finding are different problems. Paid providers can fill that gap.
-
-If a tool promises "verified emails" without telling you what was actually verified,
-it is lying to you. This tool tells you exactly what each check proved.
+Every row carries its evidence columns: `mx_ok`, `site_live`, `http_status`,
+`site_title`, `redirect_host`, `title_match`, plus a `qualify_flags` list
+(`catch_all`, `no_linkedin`, `dns_error`, …). A catch-all domain accepts any
+address, so a `CATCH_ALL` email is reported as such — never as verified.
 
 ## Install
 
@@ -45,38 +50,27 @@ lead-hygiene qualify leads.csv --out qualified.csv
 lead-hygiene hygiene qualified.csv
 ```
 
-## Verdicts
-
-| Verdict | Evidence |
-|---|---|
-| **PASS** | Real MX record + live site answered |
-| **WEAK** | Partial evidence, or contradicting identity (DNS unresolvable, dead site, social-page "website", title mismatch) |
-| **FAIL** | Domain cannot receive mail (or does not exist) |
-
-Each row carries its evidence columns: `mx_ok`, `site_live`, `http_status`,
-`site_title`, `redirect_host`, `title_match`, plus a `qualify_flags` list
-(`catch_all`, `no_linkedin`, `dns_error`, …).
-
 ## Providers
 
 | Provider | Cost | Notes |
 |---|---|---|
-| `osm` (default) | free | OpenStreetMap via Overpass. No key. Coverage varies by region; no emails |
+| `osm` (default) | free | OpenStreetMap via Overpass. No key. Coverage varies by region |
 | `google_places` | ~$ per call | Your own Google Places API key (`GOOGLE_PLACES_API_KEY`) |
 
-Keys go in your environment — nothing is hardcoded and no key is required for the
-free path.
+Keys go in your environment — nothing is hardcoded and no key is required for
+the free path.
 
-## Responsible use
+## Compliance notes
 
 - Respect [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/)
-  and Overpass fair-use: cache results, keep request rates low, attribute OpenStreetMap
-  contributors (ODbL).
-- Google Places has its own storage and caching terms — check them before storing results.
-- Lead data is personal data in most jurisdictions. If you outreach, you own the
-  compliance (GDPR, CAN-SPAM, PECR). This tool verifies data; it does not legalise contact.
-- This is a local CLI. Don't wrap it in a public web service without adding input
-  validation first — the site probe follows redirects.
+  and Overpass fair-use: cache results, keep request rates low, attribute
+  OpenStreetMap contributors (ODbL).
+- Google Places has its own storage and caching terms — check them before
+  storing results.
+- Lead data is personal data in most jurisdictions. If you outreach, you own
+  the compliance (GDPR, CAN-SPAM, PECR).
+- This is a local CLI. Don't wrap it in a public web service without adding
+  input validation first — the site probe follows redirects.
 
 ## License
 
