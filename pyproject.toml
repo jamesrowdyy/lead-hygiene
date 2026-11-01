@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lead-hygiene"
+version = "0.1.0"
+description = "Free lead discovery + honest lead qualification (MX, live site, identity, tiering)"
+requires-python = ">=3.10"
+dependencies = ["dnspython>=2.6"]
+
+[project.scripts]
+lead-hygiene = "lead_hygiene.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lead_hygiene*"]
