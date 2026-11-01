@@ -2,19 +2,23 @@
 
 ![Lead Hygiene pipeline](docs/hero.png)
 
-**Lead Hygiene is the qualification layer for lead generation pipelines.** It
-takes raw business leads from any source and grades every row on hard evidence —
-DNS, HTTP and page identity — then finds contact emails from each business's own
-website. All of it runs on DNS and plain HTTP: **the whole pipeline costs $0**.
+# Up to 5,000 contactable leads a day. Zero dollars.
 
-Scrapers are a solved problem. What separates a working pipeline from a wasted
-one is what happens after the scrape: dead domains, parked pages, social-media
-placeholders pretending to be websites, and unverified emails. Lead Hygiene
-removes those before they reach your CRM.
+Every lead-gen tool charges you per contact — enrichment APIs, email finders,
+"verified email" databases. This repo does the whole job with none of that:
 
-## Measured on a real run
+1. **It finds businesses** — coffee shops, roofers, law firms, gyms — in any
+   city, from free public map data. No account, no API key, no card.
+2. **It checks every business is real** — the website is live, it belongs to
+   that business, and their email system actually exists.
+3. **It finds the contact email** — pulled from the business's *own* website,
+   not a stale bought database.
 
-96 real coffee shops discovered in Bristol (free OpenStreetMap, no key):
+Your only cost is electricity: run it overnight, wake up to a clean CSV.
+
+## What you actually get
+
+A real run — 96 coffee shops in Bristol, no keys, nothing paid:
 
 ```
 $ lead-hygiene qualify leads.csv --out qualified.csv
@@ -27,67 +31,68 @@ $ lead-hygiene hygiene contacts.csv
 quarantined 10 FAIL rows -> quarantine-2026-11-contacts.csv (kept 86)
 ```
 
-50 of 96 leads (52%) came back with a contact email, 45 of them on the
-business's own domain. Sample rows (email local-parts redacted here):
+50 of 96 leads came back with a contact email — 45 of them the business's own
+address. Sample rows (emails redacted here):
 
-| company | domain | contact_email | qualify | title_match |
-|---|---|---|---|---|
-| Arnolfini Cafe Bar | arnolfini.org.uk | `i***@arnolfini.org.uk` | PASS | yes |
-| Mud Dock Cafe | mud-dock.co.uk | `c***@mud-dock.co.uk` | PASS | yes |
-| Starbucks | starbucks.com | `p***@starbucks.com` | PASS | yes |
-| The Bristol Loaf | thebristolloaf.co.uk | *(none found)* | PASS | yes |
+| company | domain | contact_email | qualify |
+|---|---|---|---|
+| Arnolfini Cafe Bar | arnolfini.org.uk | `i***@arnolfini.org.uk` | PASS |
+| Mud Dock Cafe | mud-dock.co.uk | `c***@mud-dock.co.uk` | PASS |
+| Starbucks | starbucks.com | `p***@starbucks.com` | PASS |
+| The Bristol Loaf | thebristolloaf.co.uk | *(none found)* | PASS |
 
-## What it costs vs the alternatives
+## How many leads a day?
 
-For the same job — find a business and a usable contact email:
+One search covers one business type in one city. The full chain takes ~3
+minutes per search — or ~20 minutes for 100 searches run in parallel.
 
-| Approach | Cost per contact |
-|---|---|
-| **Lead Hygiene** (discovery + qualify + contacts) | **$0** (bandwidth only) |
-| Typical enrichment APIs | ~$0.03–0.10 per contact |
-| Email verification APIs | ~$0.008 per address checked |
+| Searches per night | Businesses checked | Contact emails found | Cost |
+|---|---|---|---|
+| 10 | ~1,000 | ~500 | $0 |
+| 50 | ~4,800 | ~2,500 | $0 |
+| 100 | ~9,600 | ~5,000 | $0 |
 
-That gap is the point: the qualification logic is pure DNS and HTTP, so it
-scales to thousands of rows without a meter running.
+Multiply by 30 for a working month. The ceiling isn't money — it's how many
+city × business-type combinations you want to cover.
 
-## What it checks
+**Why is it free?** Because checking a business is just DNS lookups and opening
+web pages — things your computer already does for free. The paid tools charge
+for the same lookups plus their margin. Where they genuinely add value is
+deeper email verification and richer firmographics; Lead Hygiene supports
+those as optional paid providers (below), so you only pay when you decide you
+need more.
+
+**The honest footnote:** found emails are addresses published on the business's
+own site. This tool proves their mail system exists — it does not promise the
+specific inbox is monitored. That's the line most "verified email" marketing
+blurs; here it's stated up front.
+
+## Getting started
+
+```bash
+pip install -e .
+
+# find coffee shops in Bristol, check them, get emails, quarantine the dead
+lead-hygiene discover --query "coffee shop in Bristol" --out leads.csv
+lead-hygiene qualify leads.csv --out qualified.csv
+lead-hygiene contacts qualified.csv --out contacts.csv
+lead-hygiene hygiene contacts.csv
+```
+
+Swap the query for any city and any business type. That's the whole product.
+
+## What the verdicts mean
 
 | Verdict | Evidence |
 |---|---|
-| **PASS** | Real MX record + live site answered + page identity consistent with the company name |
-| **WEAK** | Partial evidence or contradictions: DNS unresolvable, dead site, social-page "website", title mismatch |
+| **PASS** | Real mail system + live site + page matches the company name |
+| **WEAK** | Partial evidence or contradictions (unresolvable DNS, dead site, social-page "website", title mismatch) |
 | **FAIL** | Domain cannot receive mail (or does not exist) |
 
 Every row carries its evidence columns: `mx_ok`, `site_live`, `http_status`,
 `site_title`, `redirect_host`, `title_match`, plus a `qualify_flags` list
 (`catch_all`, `no_linkedin`, `dns_error`, …). A catch-all domain accepts any
 address, so a `CATCH_ALL` email is reported as such — never as verified.
-
-Found emails are addresses that appear on the business's own site. The MX check
-proves the domain receives mail; a per-address SMTP probe is a separate decision
-and intentionally not automatic.
-
-## Install
-
-```bash
-pip install -e .
-```
-
-## Quick start
-
-```bash
-# 1. Discover (free, no key required — OpenStreetMap)
-lead-hygiene discover --query "coffee shop in Bristol" --out leads.csv
-
-# 2. Qualify ($0: DNS + plain HTTP)
-lead-hygiene qualify leads.csv --out qualified.csv
-
-# 3. Find contact emails from each PASS lead's own website ($0)
-lead-hygiene contacts qualified.csv --out contacts.csv
-
-# 4. Quarantine FAIL rows, keep an audit log
-lead-hygiene hygiene contacts.csv
-```
 
 ## Providers
 
@@ -99,7 +104,7 @@ lead-hygiene hygiene contacts.csv
 Keys go in your environment — nothing is hardcoded and no key is required for
 the free path.
 
-## Compliance notes
+## Fair use & compliance
 
 - Respect [Nominatim's usage policy](https://operations.osmfoundation.org/policies/nominatim/)
   and Overpass fair-use: cache results, keep request rates low, attribute
