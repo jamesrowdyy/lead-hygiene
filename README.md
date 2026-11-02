@@ -4,6 +4,8 @@
 
 # Up to 5,000 contactable leads a day. Zero dollars.
 
+**New to this?** Get the step-by-step setup and the copy-paste AI prompt at [jamesrowdy.com/tools/lead-hygiene](https://jamesrowdy.com/tools/lead-hygiene/?utm_source=github&utm_medium=readme&utm_campaign=lead-hygiene).
+
 Every lead-gen tool charges you per contact: enrichment APIs, email finders,
 "verified email" databases. This repo does the whole job with none of that.
 
